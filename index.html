@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nudge — Turn Meeting Transcripts into Action Items Automatically</title>
+<meta name="description" content="Paste your meeting transcript. Nudge AI extracts every action item, assigns owners, and updates Notion automatically. Free. No signup. Built for PMs.">
+<meta name="keywords" content="meeting action items, AI meeting tool, Notion automation, meeting productivity, PM tool, action item tracker">
+<meta property="og:title" content="Nudge — Every meeting becomes action">
+<meta property="og:description" content="AI that turns meeting transcripts into tracked Notion tasks automatically. Free forever.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080705;
+  --surface:#0f0d0a;
+  --surface2:#161310;
+  --border:rgba(255,255,255,0.07);
+  --text:#f5f0e8;
+  --muted:#6b6560;
+  --muted2:#9a9189;
+  --orange:#ff5500;
+  --orange2:#ff7733;
+  --orange-glow:rgba(255,85,0,0.15);
+  --orange-glow2:rgba(255,85,0,0.06);
+  --yellow:#ffc107;
+}
+
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Cabinet Grotesk',sans-serif;
+  overflow-x:hidden;
+  cursor:none;
+}
+
+/* CUSTOM CURSOR */
+.cursor{
+  position:fixed;width:12px;height:12px;
+  background:var(--orange);border-radius:50%;
+  pointer-events:none;z-index:9999;
+  transition:transform 0.15s ease,opacity 0.2s;
+  mix-blend-mode:screen;
+}
+.cursor-ring{
+  position:fixed;width:36px;height:36px;
+  border:1px solid rgba(255,85,0,0.4);border-radius:50%;
+  pointer-events:none;z-index:9998;
+  transition:transform 0.35s ease,width 0.3s,height 0.3s,border-color 0.3s;
+}
+body:hover .cursor{opacity:1}
+
+/* NOISE TEXTURE */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:0.4;
+}
+
+/* NAV */
+nav{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:20px 48px;
+  position:fixed;top:0;width:100%;z-index:100;
+  border-bottom:1px solid transparent;
+  transition:border-color 0.3s,background 0.3s,backdrop-filter 0.3s;
+}
+nav.scrolled{
+  border-color:var(--border);
+  background:rgba(8,7,5,0.85);
+  backdrop-filter:blur(20px);
+}
+.logo{
+  font-family:'Fraunces',serif;
+  font-size:1.6rem;font-weight:700;
+  letter-spacing:-0.03em;
+  display:flex;align-items:center;gap:4px;
+}
+.logo-dot{color:var(--orange);display:inline-block;animation:dotPulse 2s ease infinite}
+@keyframes dotPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+.nav-right{display:flex;align-items:center;gap:16px}
+.nav-link{font-size:0.85rem;color:var(--muted2);font-weight:500;transition:color 0.2s}
+.nav-link:hover{color:var(--text)}
+.nav-cta{
+  background:var(--orange);color:#fff;
+  padding:10px 22px;border-radius:100px;
+  font-size:0.85rem;font-weight:700;
+  letter-spacing:0.01em;
+  transition:transform 0.2s,box-shadow 0.2s;
+  display:inline-block;text-decoration:none;
+}
+.nav-cta:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(255,85,0,0.4)}
+
+/* HERO */
+.hero{
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:120px 40px 80px;
+  position:relative;overflow:hidden;
+  text-align:center;
+}
+
+/* 3D ORBS */
+.orb-container{
+  position:absolute;inset:0;pointer-events:none;z-index:0;
+}
+.orb{
+  position:absolute;border-radius:50%;
+  filter:blur(80px);
+  animation:orbFloat 8s ease-in-out infinite;
+}
+.orb1{
+  width:600px;height:600px;
+  background:radial-gradient(circle,rgba(255,85,0,0.18) 0%,transparent 70%);
+  top:-200px;left:50%;transform:translateX(-50%);
+  animation-duration:10s;
+}
+.orb2{
+  width:400px;height:400px;
+  background:radial-gradient(circle,rgba(255,119,51,0.12) 0%,transparent 70%);
+  bottom:0;right:-100px;
+  animation-duration:13s;animation-delay:-4s;
+}
+.orb3{
+  width:300px;height:300px;
+  background:radial-gradient(circle,rgba(255,193,7,0.08) 0%,transparent 70%);
+  bottom:100px;left:-50px;
+  animation-duration:9s;animation-delay:-2s;
+}
+@keyframes orbFloat{
+  0%,100%{transform:translateY(0) scale(1)}
+  33%{transform:translateY(-30px) scale(1.05)}
+  66%{transform:translateY(20px) scale(0.97)}
+}
+
+/* 3D GRID */
+.grid-3d{
+  position:absolute;bottom:0;left:0;right:0;height:60%;
+  background:
+    linear-gradient(rgba(255,85,0,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,85,0,0.03) 1px,transparent 1px);
+  background-size:60px 60px;
+  transform:perspective(800px) rotateX(60deg);
+  transform-origin:bottom center;
+  mask-image:linear-gradient(to top,rgba(0,0,0,0.3),transparent);
+  pointer-events:none;
+}
+
+.hero-content{position:relative;z-index:1;max-width:900px;}
+
+.hero-badge{
+  display:inline-flex;align-items:center;gap:10px;
+  background:rgba(255,85,0,0.08);
+  border:1px solid rgba(255,85,0,0.2);
+  color:var(--orange2);
+  padding:8px 18px;border-radius:100px;
+  font-size:0.75rem;font-weight:700;
+  letter-spacing:0.1em;text-transform:uppercase;
+  margin-bottom:36px;
+  animation:fadeDown 0.8s ease both;
+}
+.live-ring{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--orange);position:relative;
+}
+.live-ring::after{
+  content:'';position:absolute;inset:-4px;
+  border-radius:50%;border:1px solid var(--orange);
+  animation:ripple 2s ease-out infinite;
+}
+@keyframes ripple{0%{transform:scale(0.8);opacity:1}100%{transform:scale(2);opacity:0}}
+
+h1{
+  font-family:'Fraunces',serif;
+  font-size:clamp(3rem,7vw,6.5rem);
+  font-weight:700;line-height:1.0;
+  letter-spacing:-0.04em;
+  margin-bottom:28px;
+  animation:fadeUp 0.9s 0.1s ease both;
+}
+h1 .line1{display:block}
+h1 em{
+  font-style:italic;font-weight:300;
+  color:transparent;
+  background:linear-gradient(135deg,var(--orange),var(--orange2),var(--yellow));
+  -webkit-background-clip:text;background-clip:text;
+}
+h1 .accent-word{
+  position:relative;display:inline-block;
+}
+h1 .accent-word::after{
+  content:'';position:absolute;
+  bottom:-4px;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--orange),transparent);
+  border-radius:2px;
+  animation:slideIn 1s 0.8s ease both;
+}
+@keyframes slideIn{from{transform:scaleX(0);transform-origin:left}to{transform:scaleX(1)}}
+
+.hero-sub{
+  font-size:clamp(1rem,2vw,1.2rem);
+  color:var(--muted2);
+  max-width:560px;margin:0 auto 52px;
+  line-height:1.75;font-weight:400;
+  animation:fadeUp 0.9s 0.2s ease both;
+}
+
+.cta-group{
+  display:flex;align-items:center;justify-content:center;
+  gap:16px;flex-wrap:wrap;
+  animation:fadeUp 0.9s 0.3s ease both;
+}
+.btn-primary{
+  background:var(--orange);color:#fff;
+  padding:16px 40px;border-radius:100px;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:1rem;font-weight:700;
+  letter-spacing:0.01em;
+  display:inline-flex;align-items:center;gap:10px;
+  text-decoration:none;
+  transition:transform 0.25s,box-shadow 0.25s;
+  position:relative;overflow:hidden;
+}
+.btn-primary::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.15),transparent);
+  border-radius:100px;
+}
+.btn-primary:hover{
+  transform:translateY(-3px);
+  box-shadow:0 16px 48px rgba(255,85,0,0.45);
+}
+.btn-arrow{transition:transform 0.2s}
+.btn-primary:hover .btn-arrow{transform:translateX(4px)}
+.btn-secondary{
+  color:var(--muted2);font-size:0.9rem;font-weight:500;
+  text-decoration:none;
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  transition:color 0.2s,border-color 0.2s;
+}
+.btn-secondary:hover{color:var(--text);border-color:var(--muted)}
+
+.social-proof{
+  margin-top:52px;
+  display:flex;align-items:center;justify-content:center;gap:24px;
+  flex-wrap:wrap;
+  animation:fadeUp 0.9s 0.4s ease both;
+}
+.proof-item{
+  display:flex;align-items:center;gap:8px;
+  font-size:0.78rem;color:var(--muted);font-weight:500;
+}
+.proof-icon{color:var(--orange);font-size:0.9rem}
+.proof-divider{width:1px;height:16px;background:var(--border)}
+
+/* TICKER */
+.ticker-wrap{
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  overflow:hidden;padding:14px 0;
+  background:var(--surface);
+  position:relative;z-index:1;
+}
+.ticker-track{
+  display:flex;gap:0;
+  animation:ticker 30s linear infinite;
+  width:max-content;
+}
+.ticker-item{
+  display:flex;align-items:center;gap:32px;
+  padding:0 32px;
+  font-size:0.7rem;font-weight:700;
+  color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;
+  white-space:nowrap;
+}
+.ticker-dot{color:var(--orange);font-size:1rem}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* SECTION COMMONS */
+section{position:relative;z-index:1}
+.section-eyebrow{
+  display:inline-flex;align-items:center;gap:10px;
+  font-size:0.7rem;font-weight:700;color:var(--orange);
+  letter-spacing:0.15em;text-transform:uppercase;
+  margin-bottom:20px;
+}
+.section-eyebrow::before{content:'';width:24px;height:1px;background:var(--orange)}
+.section-title{
+  font-family:'Fraunces',serif;
+  font-size:clamp(2rem,4vw,3.2rem);
+  font-weight:700;letter-spacing:-0.03em;
+  line-height:1.1;
+}
+
+/* HOW IT WORKS */
+.how-section{padding:120px 48px;max-width:1200px;margin:0 auto}
+.how-header{margin-bottom:80px}
+.how-header p{color:var(--muted2);font-size:1rem;margin-top:16px;max-width:420px;line-height:1.7}
+
+.steps-flow{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  position:relative;gap:0;
+}
+.steps-flow::before{
+  content:'';position:absolute;
+  top:48px;left:calc(12.5% + 24px);right:calc(12.5% + 24px);
+  height:1px;background:linear-gradient(90deg,var(--orange),transparent 30%,transparent 70%,var(--orange));
+  background:linear-gradient(90deg,transparent,var(--border),var(--border),transparent);
+}
+
+.step-card{
+  padding:0 32px 0 0;
+  opacity:0;transform:translateY(24px);
+  transition:opacity 0.6s ease,transform 0.6s ease;
+}
+.step-card.visible{opacity:1;transform:translateY(0)}
+.step-card:nth-child(2){transition-delay:0.12s}
+.step-card:nth-child(3){transition-delay:0.24s}
+.step-card:nth-child(4){transition-delay:0.36s}
+
+.step-icon-wrap{
+  width:56px;height:56px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:28px;font-size:1.4rem;
+  position:relative;
+  transition:border-color 0.3s,background 0.3s;
+}
+.step-card:hover .step-icon-wrap{
+  border-color:rgba(255,85,0,0.4);
+  background:rgba(255,85,0,0.06);
+}
+.step-num-badge{
+  position:absolute;top:-8px;right:-8px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--orange);
+  font-size:0.6rem;font-weight:700;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+.step-card h3{font-size:1rem;font-weight:700;margin-bottom:10px;color:var(--text)}
+.step-card p{font-size:0.84rem;color:var(--muted);line-height:1.75}
+.step-tag{
+  display:inline-block;margin-top:14px;
+  font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--orange);padding:4px 10px;
+  border:1px solid rgba(255,85,0,0.2);border-radius:100px;
+}
+
+/* DEMO / VISUAL */
+.demo-section{
+  padding:0 48px 120px;
+  max-width:1200px;margin:0 auto;
+}
+.demo-card{
+  border:1px solid var(--border);
+  border-radius:24px;
+  overflow:hidden;
+  background:var(--surface);
+  display:grid;grid-template-columns:1fr 1fr;
+}
+.demo-panel{padding:48px}
+.demo-panel-left{border-right:1px solid var(--border)}
+.demo-panel-label{
+  font-size:0.65rem;font-weight:700;
+  letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:20px;
+  display:flex;align-items:center;gap:8px;
+}
+.demo-panel-label::before{
+  content:'';width:6px;height:6px;border-radius:50%;
+  background:var(--muted);
+}
+.demo-panel-label.active-label::before{background:var(--orange);animation:dotPulse 2s infinite}
+
+.transcript-display{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:24px;
+  font-family:'Courier New',monospace;
+  font-size:0.8rem;color:var(--muted);
+  line-height:1.9;
+  position:relative;
+}
+.transcript-display mark{
+  background:rgba(255,193,7,0.12);
+  color:var(--yellow);
+  padding:1px 4px;border-radius:3px;
+  font-style:normal;
+}
+.typing-cursor{
+  display:inline-block;width:2px;height:14px;
+  background:var(--orange);
+  animation:blink 1s step-end infinite;
+  vertical-align:middle;margin-left:2px;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+.arrow-flow{
+  display:flex;align-items:center;justify-content:center;
+  padding:20px 0;gap:8px;
+  font-size:0.7rem;font-weight:700;
+  letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--orange);
+}
+.arrow-line{flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(255,85,0,0.3),transparent)}
+
+.task-cards{display:flex;flex-direction:column;gap:12px}
+.task-card{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:12px;padding:16px 20px;
+  display:flex;justify-content:space-between;align-items:center;
+  opacity:0;transform:translateX(20px);
+  transition:opacity 0.5s ease,transform 0.5s ease,border-color 0.2s;
+}
+.task-card.visible{opacity:1;transform:translateX(0)}
+.task-card:nth-child(2){transition-delay:0.15s}
+.task-card:nth-child(3){transition-delay:0.3s}
+.task-card:hover{border-color:rgba(255,85,0,0.25)}
+.task-info{}
+.task-title{font-size:0.88rem;font-weight:700;color:var(--text);margin-bottom:6px}
+.task-meta{display:flex;align-items:center;gap:12px}
+.task-owner{font-size:0.72rem;color:var(--orange);font-weight:600}
+.task-due{font-size:0.72rem;color:var(--muted)}
+.task-status{
+  font-size:0.6rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;
+  padding:5px 12px;border-radius:100px;
+  background:rgba(255,85,0,0.08);color:var(--orange);
+  border:1px solid rgba(255,85,0,0.18);
+  white-space:nowrap;
+}
+
+/* STATS ROW */
+.stats-section{
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.stats-inner{
+  max-width:1200px;margin:0 auto;padding:0 48px;
+  display:grid;grid-template-columns:repeat(4,1fr);
+}
+.stat-block{
+  padding:48px 32px;
+  border-right:1px solid var(--border);
+  opacity:0;transform:translateY(16px);
+  transition:opacity 0.5s ease,transform 0.5s ease;
+}
+.stat-block:last-child{border-right:none}
+.stat-block.visible{opacity:1;transform:translateY(0)}
+.stat-block:nth-child(2){transition-delay:0.1s}
+.stat-block:nth-child(3){transition-delay:0.2s}
+.stat-block:nth-child(4){transition-delay:0.3s}
+.stat-number{
+  font-family:'Fraunces',serif;
+  font-size:3.5rem;font-weight:700;
+  color:var(--orange);letter-spacing:-0.04em;
+  line-height:1;margin-bottom:8px;
+}
+.stat-label{font-size:0.72rem;color:var(--muted);font-weight:600;letter-spacing:0.08em;text-transform:uppercase}
+
+/* ABOUT */
+.about-section{
+  max-width:1200px;margin:0 auto;
+  padding:120px 48px;
+  display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;
+}
+.about-text .section-title{margin-bottom:24px}
+.about-text p{color:var(--muted2);font-size:0.95rem;line-height:1.8;margin-bottom:20px}
+.stack-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:32px}
+.stack-tag{
+  font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;
+  padding:7px 16px;border:1px solid var(--border);
+  color:var(--muted2);border-radius:100px;
+  transition:border-color 0.2s,color 0.2s;
+}
+.stack-tag:hover{border-color:rgba(255,85,0,0.3);color:var(--orange)}
+
+.about-visual{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:24px;overflow:hidden;
+  position:relative;
+}
+.about-visual::before{
+  content:'';position:absolute;
+  top:-40px;right:-40px;
+  width:200px;height:200px;
+  background:radial-gradient(circle,rgba(255,85,0,0.12),transparent);
+  border-radius:50%;pointer-events:none;
+}
+.pm-quote{
+  padding:40px;
+  border-bottom:1px solid var(--border);
+}
+.quote-mark{font-family:'Fraunces',serif;font-size:4rem;color:var(--orange);opacity:0.3;line-height:0.8;margin-bottom:16px}
+.quote-text{font-size:0.95rem;color:var(--muted2);line-height:1.75;font-style:italic}
+.quote-author{margin-top:20px;font-size:0.75rem;font-weight:700;color:var(--muted);letter-spacing:0.05em}
+.pm-metrics{padding:0}
+.pm-metric{
+  padding:20px 40px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.pm-metric:last-child{border-bottom:none}
+.pm-metric-label{font-size:0.75rem;color:var(--muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
+.pm-metric-value{font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:var(--text)}
+.pm-metric-value .unit{font-size:0.9rem;color:var(--orange);margin-left:4px;font-family:'Cabinet Grotesk',sans-serif;font-weight:700}
+
+/* CTA SECTION */
+.cta-section{
+  margin:0 48px 80px;
+  background:var(--orange);
+  border-radius:32px;
+  padding:88px 72px;
+  display:flex;justify-content:space-between;align-items:center;
+  gap:48px;flex-wrap:wrap;
+  position:relative;overflow:hidden;
+}
+.cta-section::before{
+  content:'';position:absolute;
+  top:-60px;right:-60px;
+  width:300px;height:300px;
+  background:rgba(255,255,255,0.08);
+  border-radius:50%;
+}
+.cta-section::after{
+  content:'';position:absolute;
+  bottom:-80px;left:30%;
+  width:200px;height:200px;
+  background:rgba(0,0,0,0.06);
+  border-radius:50%;
+}
+.cta-left{position:relative;z-index:1}
+.cta-eyebrow{
+  font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;
+  color:rgba(255,255,255,0.6);margin-bottom:16px;
+}
+.cta-section h2{
+  font-family:'Fraunces',serif;
+  font-size:clamp(2rem,4vw,3rem);
+  font-weight:700;color:#fff;
+  letter-spacing:-0.03em;line-height:1.1;
+  margin-bottom:12px;
+}
+.cta-section p{color:rgba(255,255,255,0.65);font-size:0.9rem}
+.btn-cta-white{
+  background:#fff;color:var(--orange);
+  padding:18px 44px;border-radius:100px;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:1rem;font-weight:800;
+  display:inline-flex;align-items:center;gap:10px;
+  text-decoration:none;white-space:nowrap;
+  transition:transform 0.2s,box-shadow 0.2s;
+  position:relative;z-index:1;
+}
+.btn-cta-white:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,0.2)}
+
+/* FOOTER */
+footer{
+  border-top:1px solid var(--border);
+  padding:32px 48px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:16px;
+}
+.footer-logo{
+  font-family:'Fraunces',serif;
+  font-size:1.2rem;font-weight:700;letter-spacing:-0.02em;
+}
+.footer-logo span{color:var(--orange)}
+footer p{font-size:0.75rem;color:var(--muted)}
+.footer-links{display:flex;gap:20px}
+.footer-links a{font-size:0.75rem;color:var(--muted);text-decoration:none;transition:color 0.2s}
+.footer-links a:hover{color:var(--text)}
+
+/* SCROLL ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+
+/* RESPONSIVE */
+@media(max-width:960px){
+  nav{padding:18px 24px}
+  .nav-link{display:none}
+  .hero{padding:100px 24px 60px}
+  .how-section,.demo-section,.about-section{padding-left:24px;padding-right:24px}
+  .steps-flow{grid-template-columns:1fr 1fr;gap:40px}
+  .steps-flow::before{display:none}
+  .demo-card{grid-template-columns:1fr}
+  .demo-panel-left{border-right:none;border-bottom:1px solid var(--border)}
+  .stats-inner{grid-template-columns:1fr 1fr}
+  .stat-block:nth-child(2){border-right:none}
+  .about-section{grid-template-columns:1fr;gap:48px}
+  .cta-section{margin:0 24px 60px;padding:56px 36px;flex-direction:column;align-items:flex-start}
+  footer{padding:24px;flex-direction:column;text-align:center}
+  .footer-links{justify-content:center}
+}
+@media(max-width:600px){
+  h1{font-size:2.8rem}
+  .steps-flow{grid-template-columns:1fr}
+  .stats-inner{grid-template-columns:1fr 1fr;padding:0 24px}
+  .stat-block{padding:32px 20px}
+  .stat-number{font-size:2.8rem}
+  .demo-panel{padding:28px 24px}
+}
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<nav id="nav">
+  <div class="logo">nudge<span class="logo-dot">.</span></div>
+  <div class="nav-right">
+    <a href="#how" class="nav-link">How it works</a>
+    <a href="#about" class="nav-link">About</a>
+    <a href="https://tally.so/r/aQAENZ" class="nav-cta">Try free →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="orb-container">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+  </div>
+  <div class="grid-3d"></div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="live-ring"></div>
+      Live · Free · No signup needed
+    </div>
+
+    <h1>
+      <span class="line1">Meetings that <em>actually</em></span>
+      <span class="accent-word">ship things.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Paste your transcript. Nudge extracts every action item, assigns owners, and syncs to Notion automatically — before anyone forgets what was agreed.
+    </p>
+
+    <div class="cta-group">
+      <a href="https://tally.so/r/aQAENZ" class="btn-primary">
+        Capture Action Items <span class="btn-arrow">→</span>
+      </a>
+      <a href="#how" class="btn-secondary">See how it works</a>
+    </div>
+
+    <div class="social-proof">
+      <div class="proof-item"><span class="proof-icon">⚡</span>Runs in under 10 seconds</div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-icon">🔁</span>Zero manual work</div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-icon">🌐</span>24/7 uptime, no laptop needed</div>
+    </div>
+  </div>
+</section>
+
+<div class="ticker-wrap">
+  <div class="ticker-track">
+    <div class="ticker-item"><span>Transcript in</span><span class="ticker-dot">✦</span><span>AI reads it</span><span class="ticker-dot">✦</span><span>Tasks extracted</span><span class="ticker-dot">✦</span><span>Owners assigned</span><span class="ticker-dot">✦</span><span>Notion updated</span><span class="ticker-dot">✦</span><span>Reminder sent</span><span class="ticker-dot">✦</span><span>Nothing forgotten</span><span class="ticker-dot">✦</span><span>Loop closed</span><span class="ticker-dot">✦</span></div>
+    <div class="ticker-item"><span>Transcript in</span><span class="ticker-dot">✦</span><span>AI reads it</span><span class="ticker-dot">✦</span><span>Tasks extracted</span><span class="ticker-dot">✦</span><span>Owners assigned</span><span class="ticker-dot">✦</span><span>Notion updated</span><span class="ticker-dot">✦</span><span>Reminder sent</span><span class="ticker-dot">✦</span><span>Nothing forgotten</span><span class="ticker-dot">✦</span><span>Loop closed</span><span class="ticker-dot">✦</span></div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+<div class="how-section">
+  <div class="how-header">
+    <div class="section-eyebrow">How it works</div>
+    <h2 class="section-title">From transcript to<br>tracked task in seconds.</h2>
+    <p>No integrations to configure. No dashboards to learn. Nudge handles the full loop — intake, extraction, creation, and follow-up.</p>
+  </div>
+
+  <div class="steps-flow">
+    <div class="step-card">
+      <div class="step-icon-wrap">
+        <span>📋</span>
+        <div class="step-num-badge">1</div>
+      </div>
+      <h3>Intake</h3>
+      <p>Paste raw meeting notes into the Nudge form. Any format — rough bullets, full transcript, voice-to-text dumps.</p>
+      <span class="step-tag">Tally Form</span>
+    </div>
+    <div class="step-card">
+      <div class="step-icon-wrap">
+        <span>🧠</span>
+        <div class="step-num-badge">2</div>
+      </div>
+      <h3>AI Extraction</h3>
+      <p>Groq LLaMA reads the transcript and surfaces every commitment, DRI, and deadline — no hallucination, no missed items.</p>
+      <span class="step-tag">Groq LLaMA</span>
+    </div>
+    <div class="step-card">
+      <div class="step-icon-wrap">
+        <span>✅</span>
+        <div class="step-num-badge">3</div>
+      </div>
+      <h3>Auto-Create</h3>
+      <p>One Notion task per action item, owner pre-filled, deadline set. Your board updates before you close the laptop.</p>
+      <span class="step-tag">Notion API</span>
+    </div>
+    <div class="step-card">
+      <div class="step-icon-wrap">
+        <span>🔔</span>
+        <div class="step-num-badge">4</div>
+      </div>
+      <h3>Close the Loop</h3>
+      <p>Nudge checks status automatically and sends a Gmail nudge to owners on open items — so nothing slips through the cracks.</p>
+      <span class="step-tag">Gmail · n8n</span>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- DEMO -->
+<section class="demo-section">
+  <div class="demo-card">
+    <div class="demo-panel demo-panel-left">
+      <div class="demo-panel-label active-label">Input — raw meeting notes</div>
+      <div class="transcript-box">
+        "Synced on the Q3 launch today. <mark>Amelia owns the landing page — ship by Wednesday EOD.</mark> <mark>John to send the investor update deck to the board by Thursday.</mark> <mark>Sarah will block demo call slots for the enterprise prospects by Friday.</mark> We'll regroup Monday."<span class="typing-cursor"></span>
+      </div>
+      <div class="arrow-flow">
+        <div class="arrow-line"></div>
+        <span>Nudge processes</span>
+        <div class="arrow-line"></div>
+      </div>
+    </div>
+    <div class="demo-panel">
+      <div class="demo-panel-label">Output — Notion tasks, auto-created</div>
+      <div class="task-cards">
+        <div class="task-card">
+          <div class="task-info">
+            <div class="task-title">Ship the landing page</div>
+            <div class="task-meta">
+              <span class="task-owner">⚡ Amelia</span>
+              <span class="task-due">Wednesday EOD</span>
+            </div>
+          </div>
+          <div class="task-status">To Do</div>
+        </div>
+        <div class="task-card">
+          <div class="task-info">
+            <div class="task-title">Send investor update deck</div>
+            <div class="task-meta">
+              <span class="task-owner">⚡ John</span>
+              <span class="task-due">Thursday</span>
+            </div>
+          </div>
+          <div class="task-status">To Do</div>
+        </div>
+        <div class="task-card">
+          <div class="task-info">
+            <div class="task-title">Block demo call slots</div>
+            <div class="task-meta">
+              <span class="task-owner">⚡ Sarah</span>
+              <span class="task-due">Friday</span>
+            </div>
+          </div>
+          <div class="task-status">To Do</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-section">
+  <div class="stats-inner">
+    <div class="stat-block">
+      <div class="stat-number">0</div>
+      <div class="stat-label">Setup time</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-number">$0</div>
+      <div class="stat-label">Cost forever</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-number">24/7</div>
+      <div class="stat-label">Cloud uptime</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-number">&lt;10s</div>
+      <div class="stat-label">Transcript to tasks</div>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section id="about">
+<div class="about-section">
+  <div class="about-text">
+    <div class="section-eyebrow">The backstory</div>
+    <h2 class="section-title">Built by a PM who hates dropped balls.</h2>
+    <p>Every meeting ends the same way — energy, alignment, good intentions. Then everyone goes back to their tabs and nothing happens. The action items live in someone's notes. The DRIs forget. The next sync starts with "wait, what were we supposed to do?"</p>
+    <p>Nudge closes that loop automatically. Built in one night with AI automation tools. Runs in the cloud 24/7. Free forever.</p>
+    <div class="stack-tags">
+      <span class="stack-tag">n8n Cloud</span>
+      <span class="stack-tag">Groq LLaMA</span>
+      <span class="stack-tag">Notion API</span>
+      <span class="stack-tag">Tally Forms</span>
+      <span class="stack-tag">Gmail</span>
+    </div>
+  </div>
+  <div class="about-visual">
+    <div class="pm-quote">
+      <div class="quote-mark">"</div>
+      <p class="quote-text">The best PM tools eliminate the gap between decision and execution. Nudge makes follow-through the path of least resistance.</p>
+      <div class="quote-author">Amelia Ann Pereira · Builder of Nudge · 2026</div>
+    </div>
+    <div class="pm-metrics">
+      <div class="pm-metric">
+        <span class="pm-metric-label">Action items captured</span>
+        <span class="pm-metric-value">100%<span class="unit">✓</span></span>
+      </div>
+      <div class="pm-metric">
+        <span class="pm-metric-label">Manual entry required</span>
+        <span class="pm-metric-value">None<span class="unit">✓</span></span>
+      </div>
+      <div class="pm-metric">
+        <span class="pm-metric-label">Meetings with follow-through</span>
+        <span class="pm-metric-value">All<span class="unit">✓</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section">
+  <div class="cta-left">
+    <div class="cta-eyebrow">Ready to ship faster?</div>
+    <h2>Stop losing action items<br>after every sync.</h2>
+    <p>Free. No account needed. Works in under 60 seconds.</p>
+  </div>
+  <a href="https://tally.so/r/aQAENZ" class="btn-cta-white">
+    Try Nudge free →
+  </a>
+</div>
+
+<footer>
+  <div class="footer-logo">nudge<span>.</span></div>
+  <p>Built with love by Amelia Ann Pereira · 2026</p>
+  <div class="footer-links">
+    <a href="https://tally.so/r/aQAENZ">Try it free</a>
+    <a href="#how">How it works</a>
+  </div>
+</footer>
+
+<script>
+// Custom cursor
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursorRing');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  cursor.style.left=mx-6+'px';cursor.style.top=my-6+'px';
+});
+function animRing(){
+  rx+=(mx-rx)*0.12;ry+=(my-ry)*0.12;
+  ring.style.left=rx-18+'px';ring.style.top=ry-18+'px';
+  requestAnimationFrame(animRing);
+}animRing();
+document.querySelectorAll('a,button').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{
+    cursor.style.transform='scale(2)';
+    ring.style.width='56px';ring.style.height='56px';
+    ring.style.borderColor='rgba(255,85,0,0.6)';
+  });
+  el.addEventListener('mouseleave',()=>{
+    cursor.style.transform='scale(1)';
+    ring.style.width='36px';ring.style.height='36px';
+    ring.style.borderColor='rgba(255,85,0,0.4)';
+  });
+});
+
+// Nav scroll
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>{
+  nav.classList.toggle('scrolled',window.scrollY>40);
+});
+
+// Intersection observer
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')});
+},{threshold:0.15});
+document.querySelectorAll('.step-card,.task-card,.stat-block').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
